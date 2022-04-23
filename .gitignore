@@ -1,0 +1,14 @@
+# DocC
+docs/
+
+# Swift Package Manager
+.build/
+.swiftpm
+Package.resolved
+
+# Xcode
+## User settings
+xcuserdata/
+
+# Other
+.DS_Store
