@@ -1,0 +1,104 @@
+//
+{#
+    Created by Kamil Wyszomierski
+
+    This template is written in Stencil. For more info please visit: http://stencil.fuller.li/en/latest/
+#}
+// swiftlint:disable superfluous_disable_command
+// swiftlint:disable file_length
+// swiftlint:disable identifier_name
+// swiftlint:disable nesting
+// swiftlint:disable type_body_length
+
+{#
+    Adds imports specified under `imports` argument in `args` inside .yml config.
+#}
+{% for anImport in argument.imports %}
+import {{ anImport }}
+{% endfor %}
+{#
+    Adds libraries `@testable import` specified under `testables` argument in `args` inside .yml config.
+#}
+{% for aTestable in argument.testables %}
+@testable import {{ aTestable }}
+{% endfor %}
+{#
+    Macros
+#}
+{% macro generateStub type %}
+extension {{ type.name }} {
+
+    enum StubFactory: StubFactoryProtocol {
+
+        typealias Subject = {{ type.name }}
+
+    {# Check if contains defined initializers already and use just init with params when yes #}
+    {% if type.initializers.count > 0 %}
+        {% call makeFromInits type %}
+    {% elif type.storedVariables.count > 0 %}
+        {% call makeFromProperties type %}
+    {% else %}
+        static func make() -> {{ type.name }} { .init() }
+    {% endif %}
+    }
+}
+
+{% endmacro %}
+
+{% macro hasStubImplemented type %}{% for aContainedType in aType.containedTypes where aContainedType.based.StubFactoryProtocol %}1{% empty %}{% endfor %}{% endmacro %}
+{% macro makeParamElement param %}{{ param.name }}: {{ param.typeName }} = .StubFactory.make(){% if not forloop.last %},{% endif %}{% endmacro %}
+{% macro makeRegularParamElement param %}{{ param.name }}: {{ param.typeName }}{% if not forloop.last %},{% endif %}{% endmacro %}
+{% macro makeInitBodyElement param %}{{ aParam.name }}: {{ aParam.name }}{% if not forloop.last %},{% endif %}{% endmacro %}
+{% macro makeFromInits type %}
+    {% for anInit in type.initializers %}
+        static func make(
+        {% for aParam in anInit.parameters %}
+            {% if aParam.type.based.Stub %}
+            {% call makeParamElement aParam %}
+            {% else %}
+            {% call makeRegularParamElement aParam %}
+            {% endif %}
+        {% endfor %}
+        ) -> {{ type.name }} {
+            .init(
+        {% for aParam in anInit.parameters %}
+                {% call makeInitBodyElement aParam %}
+        {% endfor %}
+            )
+        }
+    {% endfor %}
+{% endmacro %}
+{% macro makeFromProperties type %}
+        static func make(
+    {% for aParam in type.storedVariables where aParam.defaultValue == nil %}
+        {% if aParam.type.based.Stub %}
+            {% call makeParamElement aParam %}
+        {% else %}
+            {% call makeRegularParamElement aParam %}
+        {% endif %}
+    {% endfor %}
+        ) -> {{ type.name }} {
+            .init(
+    {% for aParam in type.storedVariables where aParam.defaultValue == nil %}
+                {% call makeInitBodyElement aParam %}
+    {% endfor %}
+            )
+        }
+{% endmacro %}
+{#
+    Iterate over types
+#}
+{% for aType in types.all where aType.based.Stub and not aType.annotations.skip %}
+    {% set hasStub %}{% call hasStubImplemented aType %}{% endset %}
+    {% if not hasStub %}
+        {% if argument.scanAccessLevel == "all" %}
+            {% call generateStub aType %}
+        {% elif argument.scanAccessLevel == "publicOnly" and aType.accessLevel == "public" %}
+            {% call generateStub aType %}
+        {% elif argument.scanAccessLevel == "publicOnly" and aType.accessLevel == "open" %}
+            {% call generateStub aType %}
+        {% elif argument.scanAccessLevel != "publicOnly" and aType.accessLevel != "private" %}
+            {% call generateStub aType %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
