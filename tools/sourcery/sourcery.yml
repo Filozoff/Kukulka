@@ -1,0 +1,12 @@
+sources:
+    include:
+        - ../../Sources/Kukulka/PredefinedStubs
+        - ../../Tests/KukulkaTests/TestDoubles/Custom
+templates:
+    - ../../Templates/Stub.stencil
+output:
+    path: ../../Tests/KukulkaTests/Generated
+args:
+    imports:
+        - Foundation
+        - Kukulka
